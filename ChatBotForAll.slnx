@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ChatBotForAll.ApiService/ChatBotForAll.ApiService.csproj" />
+  <Project Path="ChatBotForAll.AppHost/ChatBotForAll.AppHost.csproj" />
+  <Project Path="ChatBotForAll.ServiceDefaults/ChatBotForAll.ServiceDefaults.csproj" />
+  <Project Path="ChatBotForAll.Tests/ChatBotForAll.Tests.csproj" />
+  <Project Path="ChatBotForAll.Web/ChatBotForAll.Web.csproj" />
+</Solution>
