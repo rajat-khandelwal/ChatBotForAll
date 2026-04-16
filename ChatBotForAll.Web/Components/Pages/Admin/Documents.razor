@@ -1,0 +1,141 @@
+@page "/admin/documents"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+@layout ChatBotForAll.Web.Components.Layout.AdminLayout
+
+@inject DocumentApiClient DocumentApiClient
+
+<PageTitle>Documents — ChatBotForAll Admin</PageTitle>
+
+<h4 class="fw-bold mb-4">Documents</h4>
+
+<!-- Upload Card -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white fw-semibold border-bottom">Upload Document</div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">Allowed types: <strong>.pdf</strong>, <strong>.txt</strong>, <strong>.md</strong> — Max size: <strong>20 MB</strong></p>
+
+        @if (_uploadMessage is not null)
+        {
+            <div class="alert @(_uploadSuccess ? "alert-success" : "alert-danger") py-2 small">@_uploadMessage</div>
+        }
+
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <InputFile OnChange="OnFileSelected" class="form-control" style="max-width: 420px" />
+            <button class="btn btn-primary" @onclick="HandleUpload"
+                    disabled="@(_selectedFile is null || _isUploading)">
+                @(_isUploading ? "Uploading..." : "Upload")
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Document List Card -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center border-bottom">
+        <span class="fw-semibold">Uploaded Documents (@_documents.Count)</span>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="LoadDocuments">↻ Refresh</button>
+    </div>
+    <div class="card-body p-0">
+        @if (_isLoading)
+        {
+            <div class="p-4 text-center text-muted">Loading...</div>
+        }
+        else if (_documents.Count == 0)
+        {
+            <div class="p-4 text-center text-muted">No documents uploaded yet. Upload one above.</div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>File Name</th>
+                        <th>Type</th>
+                        <th>Size</th>
+                        <th>Status</th>
+                        <th>Uploaded</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var doc in _documents)
+                    {
+                        <tr>
+                            <td>@doc.FileName</td>
+                            <td><span class="badge bg-light text-dark border">@doc.ContentType</span></td>
+                            <td>@FormatSize(doc.SizeBytes)</td>
+                            <td><span class="badge @StatusBadge(doc.Status)">@doc.Status</span></td>
+                            <td>@doc.CreatedDateTime?.ToString("MMM dd, yyyy HH:mm")</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => HandleDelete(doc.DocumentId)">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Models.Documents.DocumentResponse> _documents = [];
+    private IBrowserFile? _selectedFile;
+    private bool _isUploading;
+    private bool _isLoading;
+    private bool _uploadSuccess;
+    private string? _uploadMessage;
+
+    protected override async Task OnInitializedAsync() => await LoadDocuments();
+
+    private async Task LoadDocuments()
+    {
+        _isLoading = true;
+        _documents = await DocumentApiClient.GetDocumentsAsync();
+        _isLoading = false;
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e) => _selectedFile = e.File;
+
+    private async Task HandleUpload()
+    {
+        if (_selectedFile is null) return;
+        _isUploading = true;
+        _uploadMessage = null;
+
+        var (success, error) = await DocumentApiClient.UploadAsync(_selectedFile);
+        _isUploading = false;
+        _uploadSuccess = success;
+        _uploadMessage = success
+            ? $"'{_selectedFile.Name}' uploaded successfully."
+            : $"Upload failed: {error}";
+        _selectedFile = null;
+
+        if (success) await LoadDocuments();
+    }
+
+    private async Task HandleDelete(Guid documentId)
+    {
+        await DocumentApiClient.DeleteAsync(documentId);
+        await LoadDocuments();
+    }
+
+    private static string FormatSize(long? bytes) => bytes switch
+    {
+        null => "—",
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024} KB",
+        _ => $"{bytes / (1024 * 1024)} MB"
+    };
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "Indexed" => "bg-success",
+        "Processing" => "bg-warning text-dark",
+        "Failed" => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

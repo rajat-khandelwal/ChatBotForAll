@@ -14,6 +14,7 @@ namespace ChatBotForAll.ApiService.Data
         public DbSet<Document> Documents => Set<Document>();
         public DbSet<Conversation> Conversations => Set<Conversation>();
         public DbSet<Message> Messages => Set<Message>();
+        public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
         public DbSet<ChunkEmbedding> ChunkEmbeddings => Set<ChunkEmbedding>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -32,10 +33,46 @@ namespace ChatBotForAll.ApiService.Data
                 entity.HasIndex(x => x.Slug).IsUnique();
             });
 
-            modelBuilder.Entity<Document>(entity => entity.HasKey(x => x.DocumentId));
-            modelBuilder.Entity<Conversation>(entity => entity.HasKey(x => x.ConversationId));
-            modelBuilder.Entity<Message>(entity => entity.HasKey(x => x.MessageId));
-            modelBuilder.Entity<ChunkEmbedding>(entity => entity.HasKey(x => x.ChunkEmbeddingId));
+            modelBuilder.Entity<Document>(entity =>
+            {
+                entity.HasKey(x => x.DocumentId);
+                entity.HasIndex(x => new { x.TenantId, x.DocumentStatus, x.CreatedDateTime });
+            });
+
+            modelBuilder.Entity<DocumentChunk>(entity =>
+            {
+                entity.HasKey(x => x.DocumentChunkId);
+                entity.HasIndex(x => new { x.TenantId, x.DocumentId, x.ChunkIndex });
+                entity.HasOne(x => x.Document)
+                    .WithMany()
+                    .HasForeignKey(x => x.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ChunkEmbedding>(entity =>
+            {
+                entity.HasKey(x => x.ChunkEmbeddingId);
+                entity.HasOne<DocumentChunk>()
+                    .WithMany(x => x.ChunkEmbeddings)
+                    .HasForeignKey(x => x.DocumentChunkId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Conversation>(entity =>
+            {
+                entity.HasKey(x => x.ConversationId);
+                entity.HasIndex(x => new { x.TenantId, x.UserId, x.UpdatedDateTime });
+            });
+
+            modelBuilder.Entity<Message>(entity =>
+            {
+                entity.HasKey(x => x.MessageId);
+                entity.HasIndex(x => new { x.TenantId, x.ConversationId });
+                entity.HasOne(x => x.Conversation)
+                    .WithMany(x => x.Messages)
+                    .HasForeignKey(x => x.ConversationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 }

@@ -1,0 +1,114 @@
+@page "/admin/dashboard"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+@layout ChatBotForAll.Web.Components.Layout.AdminLayout
+
+@inject DocumentApiClient DocumentApiClient
+@inject ChatApiClient ChatApiClient
+
+<PageTitle>Dashboard — ChatBotForAll Admin</PageTitle>
+
+<h4 class="fw-bold mb-4">Dashboard</h4>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon bg-primary-subtle text-primary">📄</div>
+                <div>
+                    <div class="text-muted small">Total Documents</div>
+                    <div class="fs-3 fw-bold">@_totalDocs</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon bg-success-subtle text-success">✅</div>
+                <div>
+                    <div class="text-muted small">Indexed</div>
+                    <div class="fs-3 fw-bold">@_indexedDocs</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon bg-info-subtle text-info">💬</div>
+                <div>
+                    <div class="text-muted small">Conversations</div>
+                    <div class="fs-3 fw-bold">@_totalConvs</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_recentDocs.Count > 0)
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white fw-semibold border-bottom">Recent Documents</div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>File Name</th>
+                        <th>Status</th>
+                        <th>Uploaded</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var doc in _recentDocs)
+                    {
+                        <tr>
+                            <td>@doc.FileName</td>
+                            <td><span class="badge @StatusBadge(doc.Status)">@doc.Status</span></td>
+                            <td>@doc.CreatedDateTime?.ToString("MMM dd, yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<style>
+    .stat-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+</style>
+
+@code {
+    private int _totalDocs;
+    private int _indexedDocs;
+    private int _totalConvs;
+    private List<Models.Documents.DocumentResponse> _recentDocs = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var docs = await DocumentApiClient.GetDocumentsAsync();
+        var convs = await ChatApiClient.GetConversationsAsync();
+
+        _totalDocs = docs.Count;
+        _indexedDocs = docs.Count(x => x.Status == "Indexed");
+        _totalConvs = convs.Count;
+        _recentDocs = docs.Take(5).ToList();
+    }
+
+    private static string StatusBadge(string status) => status switch
+    {
+        "Indexed" => "bg-success",
+        "Processing" => "bg-warning text-dark",
+        "Failed" => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

@@ -1,0 +1,54 @@
+@using ChatBotForAll.Web.Constants
+@inherits LayoutComponentBase
+@inject TokenStore TokenStore
+@inject NavigationManager Navigation
+@inject ProtectedLocalStorage LocalStorage
+
+<div class="admin-wrapper">
+    <nav class="admin-sidebar">
+        <div class="sidebar-brand">🤖 ChatBotForAll</div>
+        <ul class="sidebar-nav">
+            <li>
+                <NavLink href="/admin/dashboard" Match="NavLinkMatch.All">
+                    <span>📊</span> Dashboard
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="/admin/documents">
+                    <span>📄</span> Documents
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="/admin/chat">
+                    <span>💬</span> Chat
+                </NavLink>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            <AuthorizeView>
+                <div class="sidebar-user mb-2">@context.User.Identity?.Name</div>
+            </AuthorizeView>
+            <button class="btn btn-outline-light btn-sm w-100" @onclick="Logout">Logout</button>
+        </div>
+    </nav>
+
+    <div class="admin-content">
+        <div class="admin-topbar">
+            <AuthorizeView>
+                <span class="text-muted small">Welcome, <strong>@context.User.Identity?.Name</strong></span>
+            </AuthorizeView>
+        </div>
+        <div class="admin-body">
+            @Body
+        </div>
+    </div>
+</div>
+
+@code {
+    private async Task Logout()
+    {
+        TokenStore.ClearLogin();
+        try { await LocalStorage.DeleteAsync(CookiesConstant.AuthCookieName); } catch { }
+        Navigation.NavigateTo("/login", forceLoad: false);
+    }
+}

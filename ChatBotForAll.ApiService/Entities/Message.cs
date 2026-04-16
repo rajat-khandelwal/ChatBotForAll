@@ -13,5 +13,8 @@ namespace ChatBotForAll.ApiService.Entities
         public int? PromptTokens { get; set; }
         public int? CompletionTokens { get; set; }
         public int? LatencyMs { get; set; }
+
+        // Navigation
+        public Conversation Conversation { get; set; }
     }
 }

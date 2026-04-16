@@ -1,5 +1,4 @@
 ﻿using ChatBotForAll.ApiService.Enums;
-using System.Reflection.Metadata;
 
 namespace ChatBotForAll.ApiService.Entities
 {

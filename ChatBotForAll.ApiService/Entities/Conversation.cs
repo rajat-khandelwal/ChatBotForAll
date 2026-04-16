@@ -7,5 +7,8 @@ namespace ChatBotForAll.ApiService.Entities
         public Guid? UserId { get; set; }
         public string? ExternalSessionId { get; set; }
         public string? Title { get; set; }
+
+        // Navigation
+        public ICollection<Message> Messages { get; set; } = [];
     }
 }

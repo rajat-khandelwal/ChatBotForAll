@@ -1,0 +1,152 @@
+@page "/login"
+@using ChatBotForAll.Web.Constants
+@rendermode InteractiveServer
+@inject AuthApiClient AuthApiClient
+@inject TokenStore TokenStore
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IWebHostEnvironment Env
+@inject ProtectedLocalStorage LocalStorage
+
+<PageTitle>Login — ChatBotForAll Admin</PageTitle>
+
+<div class="login-bg">
+    <div class="card login-card shadow-lg">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <div class="fs-3 fw-bold">🤖 ChatBotForAll</div>
+                <div class="text-muted small">Admin Panel</div>
+            </div>
+
+            @if (Env.IsDevelopment())
+            {
+                <div class="alert alert-info py-2 small mb-3">
+                    <strong>Dev credentials</strong><br />
+                    Tenant ID: <code>00000000-0000-0000-0000-000000000001</code><br />
+                    Email: <code>admin@demo.com</code> &nbsp; Password: <code>Admin@123</code>
+                    <button class="btn btn-sm btn-outline-primary ms-2 mt-1" @onclick="FillDevCredentials">Fill</button>
+                </div>
+            }
+
+            @if (_errorMessage is not null)
+            {
+                <div class="alert alert-danger py-2 small">@_errorMessage</div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Tenant ID</label>
+                <input class="form-control" @bind="_tenantIdStr" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Email</label>
+                <input class="form-control" @bind="_email" placeholder="admin@example.com" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Password</label>
+                <input class="form-control" type="password" @bind="_password" @onkeydown="HandleKeyDown" />
+            </div>
+            <button class="btn btn-primary w-100" @onclick="HandleLogin" disabled="@_isLoading">
+                @(_isLoading ? "Signing in..." : "Sign In")
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .login-bg {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f1f5f9;
+    }
+
+    .login-card {
+        width: 100%;
+        max-width: 420px;
+        border: none;
+        border-radius: 12px;
+    }
+</style>
+
+@code {
+    private string _tenantIdStr = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string? _errorMessage;
+    private bool _isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+            Navigation.NavigateTo("/admin/dashboard");
+    }
+
+    private void FillDevCredentials()
+    {
+        _tenantIdStr = "00000000-0000-0000-0000-000000000001";
+        _email = "admin@demo.com";
+        _password = "Admin@123";
+    }
+
+    private async Task HandleLogin()
+    {
+        _errorMessage = null;
+
+        if (!Guid.TryParse(_tenantIdStr, out var tenantId))
+        {
+            _errorMessage = "Invalid Tenant ID. Enter a valid GUID.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+        {
+            _errorMessage = "Email and password are required.";
+            return;
+        }
+
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AuthApiClient.LoginAsync(new Models.Auth.LoginRequest
+            {
+                TenantId = tenantId,
+                Email = _email,
+                Password = _password
+            });
+
+            if (result is null)
+            {
+                _errorMessage = "Invalid credentials. Check your Tenant ID, email and password.";
+                return;
+            }
+
+            TokenStore.SetLogin(result);
+
+            // Persist token so it survives page refresh
+            try { await LocalStorage.SetAsync(CookiesConstant.AuthCookieName, result); } catch { }
+
+            // Yield once to allow AuthenticationStateProvider to propagate
+            await Task.Yield();
+
+            Navigation.NavigateTo("/admin/dashboard", forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Login failed: {ex.Message}. Ensure the API is running.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await HandleLogin();
+    }
+}
+

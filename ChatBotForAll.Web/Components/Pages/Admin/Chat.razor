@@ -1,0 +1,149 @@
+@page "/admin/chat"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+@layout ChatBotForAll.Web.Components.Layout.AdminLayout
+
+@inject ChatApiClient ChatApiClient
+
+<PageTitle>Chat — ChatBotForAll Admin</PageTitle>
+
+<div class="chat-layout">
+    <!-- Conversation Sidebar -->
+    <div class="chat-sidebar">
+        <div class="chat-sidebar-header">
+            <span class="fw-semibold">Conversations</span>
+            <button class="btn btn-sm btn-primary" @onclick="NewConversation" disabled="@_isLoadingConv">
+                + New
+            </button>
+        </div>
+        <div class="chat-conv-list">
+            @if (_conversations.Count == 0)
+            {
+                <div class="text-muted small p-3">No conversations yet. Click + New to start.</div>
+            }
+            @foreach (var conv in _conversations)
+            {
+                <div class="chat-conv-item @(conv.ConversationId == _activeId ? "active" : "")"
+                     @onclick="() => LoadConversation(conv.ConversationId)">
+                    <div class="conv-title">@(conv.Title ?? "Conversation")</div>
+                    <div class="conv-date">@conv.UpdatedDateTime?.ToString("MMM dd, HH:mm")</div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Chat Main -->
+    <div class="chat-main">
+        @if (_activeConversation is null)
+        {
+            <div class="chat-empty">
+                <div class="text-muted">Select a conversation or start a new one →</div>
+            </div>
+        }
+        else
+        {
+            <div class="chat-messages" id="chatMessages">
+                @foreach (var msg in _activeConversation.Messages)
+                {
+                    <div class="chat-row @(msg.Role == "User" ? "user" : "assistant")">
+                        <div class="chat-bubble">
+                            <div class="bubble-role">@msg.Role</div>
+                            <div>@msg.Content</div>
+                        </div>
+                    </div>
+                }
+                @if (_isThinking)
+                {
+                    <div class="chat-row assistant">
+                        <div class="chat-bubble thinking">
+                            <div class="bubble-role">Assistant</div>
+                            <div class="text-muted fst-italic">Thinking...</div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="chat-input">
+                <div class="input-group">
+                    <input class="form-control"
+                           placeholder="Ask a question... (Enter to send)"
+                           @bind="_question"
+                           @bind:event="oninput"
+                           @onkeydown="HandleKeyDown"
+                           disabled="@_isThinking" />
+                    <button class="btn btn-primary"
+                            @onclick="SendMessage"
+                            disabled="@(string.IsNullOrWhiteSpace(_question) || _isThinking)">
+                        Send
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Models.Chat.ConversationResponse> _conversations = [];
+    private Models.Chat.ConversationResponse? _activeConversation;
+    private Guid? _activeId;
+    private string _question = string.Empty;
+    private bool _isThinking;
+    private bool _isLoadingConv;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _conversations = await ChatApiClient.GetConversationsAsync();
+    }
+
+    private async Task NewConversation()
+    {
+        _isLoadingConv = true;
+        var conv = await ChatApiClient.StartConversationAsync($"Chat {DateTime.Now:HH:mm}");
+        _isLoadingConv = false;
+        if (conv is null) return;
+        _conversations.Insert(0, conv);
+        await LoadConversation(conv.ConversationId);
+    }
+
+    private async Task LoadConversation(Guid conversationId)
+    {
+        _activeId = conversationId;
+        _activeConversation = await ChatApiClient.GetConversationAsync(conversationId);
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_question) || _activeConversation is null) return;
+
+        var question = _question;
+        _question = string.Empty;
+        _isThinking = true;
+
+        _activeConversation.Messages.Add(new Models.Chat.MessageResponse
+        {
+            MessageId = Guid.NewGuid(),
+            Role = "User",
+            Content = question,
+            CreatedDateTime = DateTime.UtcNow
+        });
+
+        var answer = await ChatApiClient.AskAsync(_activeConversation.ConversationId, question);
+        _isThinking = false;
+
+        if (answer is not null)
+        {
+            _activeConversation.Messages.Add(new Models.Chat.MessageResponse
+            {
+                MessageId = answer.MessageId,
+                Role = "Assistant",
+                Content = answer.Answer,
+                CreatedDateTime = DateTime.UtcNow
+            });
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey) await SendMessage();
+    }
+}
