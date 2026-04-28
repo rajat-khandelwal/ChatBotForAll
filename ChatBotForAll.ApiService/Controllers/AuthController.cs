@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ChatBotForAll.ApiService.Interfaces;
 using ChatBotForAll.ApiService.Models.Auth;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace ChatBotForAll.ApiService.Controllers
 {
@@ -57,6 +59,17 @@ namespace ChatBotForAll.ApiService.Controllers
             }
 
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Debug endpoint to inspect token claims (dev only)
+        /// </summary>
+        [HttpGet("debug/claims")]
+        [Authorize]
+        public ActionResult DebugClaims()
+        {
+            var claims = User.Claims.Select(c => new { Type = c.Type, Value = c.Value }).ToList();
+            return Ok(new { Claims = claims, IsAuthenticated = User.Identity?.IsAuthenticated });
         }
     }
 }

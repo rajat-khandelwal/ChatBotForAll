@@ -1,5 +1,6 @@
 using ChatBotForAll.ApiService.Entities;
 using Microsoft.EntityFrameworkCore;
+using Pgvector.EntityFrameworkCore;
 
 namespace ChatBotForAll.ApiService.Data
 {
@@ -17,9 +18,19 @@ namespace ChatBotForAll.ApiService.Data
         public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
         public DbSet<ChunkEmbedding> ChunkEmbeddings => Set<ChunkEmbedding>();
 
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            base.OnConfiguring(optionsBuilder);
+            optionsBuilder.UseNpgsql(x => x.UseVector());
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // pgvector extension should already be installed in Docker
+            // Comment out - will fail if extension not installed
+            // modelBuilder.HasPostgresExtension("vector");
 
             modelBuilder.Entity<AppUser>(entity =>
             {
@@ -56,6 +67,8 @@ namespace ChatBotForAll.ApiService.Data
                     .WithMany(x => x.ChunkEmbeddings)
                     .HasForeignKey(x => x.DocumentChunkId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                // Vector index will be created via migration with proper dimensions
             });
 
             modelBuilder.Entity<Conversation>(entity =>

@@ -19,11 +19,16 @@ namespace ChatBotForAll.ApiService.Services
 
         private readonly IDocumentRepository _documentRepository;
         private readonly IFileStorageService _fileStorageService;
+        private readonly IDocumentProcessingBackgroundService _processingBackgroundService;
 
-        public DocumentService(IDocumentRepository documentRepository, IFileStorageService fileStorageService)
+        public DocumentService(
+            IDocumentRepository documentRepository,
+            IFileStorageService fileStorageService,
+            IDocumentProcessingBackgroundService processingBackgroundService)
         {
             _documentRepository = documentRepository;
             _fileStorageService = fileStorageService;
+            _processingBackgroundService = processingBackgroundService;
         }
 
         public async Task<DocumentResponse> UploadAsync(IFormFile file, Guid tenantId, Guid uploadedByUserId)
@@ -52,6 +57,10 @@ namespace ChatBotForAll.ApiService.Services
             };
 
             var created = await _documentRepository.AddAsync(document);
+
+            // Enqueue background job for document processing (chunking + embeddings)
+            _processingBackgroundService.EnqueueDocumentProcessing(tenantId, documentId);
+
             return MapToResponse(created);
         }
 

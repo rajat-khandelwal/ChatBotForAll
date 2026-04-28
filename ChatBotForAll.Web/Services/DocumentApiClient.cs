@@ -8,8 +8,13 @@ namespace ChatBotForAll.Web.Services
     {
         private void AttachToken()
         {
-            if (tokenStore.CurrentUser?.Token is { } token)
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var token = tokenStore.CurrentUser?.Token;
+            if (string.IsNullOrEmpty(token))
+            {
+                httpClient.DefaultRequestHeaders.Authorization = null;
+                return;
+            }
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
         public async Task<List<DocumentResponse>> GetDocumentsAsync()

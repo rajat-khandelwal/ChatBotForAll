@@ -1,12 +1,13 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Pgvector;
 
 #nullable disable
 
-namespace ChatBotForAll.ApiService.Data.Migrations
+namespace ChatBotForAll.ApiService.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class CreateInitialTables : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -157,7 +158,7 @@ namespace ChatBotForAll.ApiService.Data.Migrations
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
                     DocumentChunkId = table.Column<Guid>(type: "uuid", nullable: false),
                     Model = table.Column<string>(type: "text", nullable: false),
-                    Vector = table.Column<float[]>(type: "real[]", nullable: false),
+                    Vector = table.Column<Vector>(type: "vector", nullable: false),
                     CreatedDateTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     UpdatedDateTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CreatedBy = table.Column<string>(type: "text", nullable: false),

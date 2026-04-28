@@ -1,3 +1,5 @@
+using Pgvector;
+
 namespace ChatBotForAll.ApiService.Entities
 {
     public class ChunkEmbedding : DefaultColumns
@@ -6,6 +8,6 @@ namespace ChatBotForAll.ApiService.Entities
         public Guid TenantId { get; set; }
         public Guid DocumentChunkId { get; set; }
         public string Model { get; set; }
-        public float[] Vector { get; set; } = [];
+        public Vector Vector { get; set; }
     }
 }

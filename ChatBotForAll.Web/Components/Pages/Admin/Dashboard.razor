@@ -5,6 +5,7 @@
 
 @inject DocumentApiClient DocumentApiClient
 @inject ChatApiClient ChatApiClient
+@inject TokenStore TokenStore
 
 <PageTitle>Dashboard — ChatBotForAll Admin</PageTitle>
 
@@ -95,6 +96,14 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Ensure token is restored from ProtectedLocalStorage before making API calls
+        // by waiting for TokenStore to have a value
+        var maxWaitTime = DateTime.UtcNow.AddSeconds(5);
+        while (TokenStore.CurrentUser is null && DateTime.UtcNow < maxWaitTime)
+        {
+            await Task.Delay(50);
+        }
+
         var docs = await DocumentApiClient.GetDocumentsAsync();
         var convs = await ChatApiClient.GetConversationsAsync();
 

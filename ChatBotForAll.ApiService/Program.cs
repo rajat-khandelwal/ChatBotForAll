@@ -11,6 +11,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;
+using Hangfire;
+using Hangfire.PostgreSql;
+using Pgvector.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,8 +25,10 @@ builder.Services.AddProblemDetails();
 builder.Services.AddControllers();
 
 builder.Services.AddDbContext<ChatBotDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("chatbotforall")
-        ?? builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("chatbotforall")
+            ?? builder.Configuration.GetConnectionString("DefaultConnection"),
+        x => x.UseVector()));
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
@@ -43,9 +48,37 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = signingKey,
             ClockSkew = TimeSpan.Zero
         };
+
+        // Detailed logging for JWT validation failures (dev only)
+        if (builder.Environment.IsDevelopment())
+        {
+            options.Events = new JwtBearerEvents
+            {
+                OnAuthenticationFailed = context =>
+                {
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    logger.LogError("JWT validation failed: {Exception}", context.Exception?.Message);
+                    return Task.CompletedTask;
+                },
+                OnTokenValidated = context =>
+                {
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    logger.LogInformation("JWT token validated successfully. Claims: {Claims}",
+                        string.Join(", ", context.Principal?.Claims.Select(c => $"{c.Type}={c.Value}") ?? []));
+                    return Task.CompletedTask;
+                }
+            };
+        }
     });
 
 builder.Services.AddAuthorization();
+
+// Hangfire configuration
+var hangfireConnectionString = builder.Configuration.GetConnectionString("chatbotforall")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddHangfire(config =>
+    config.UsePostgreSqlStorage(c => c.UseNpgsqlConnection(hangfireConnectionString)));
+builder.Services.AddHangfireServer();
 
 builder.Services.AddScoped<IUserRepository, EfUserRepository>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
@@ -54,6 +87,11 @@ builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddScoped<IDocumentRepository, EfDocumentRepository>();
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IChunkingService, ChunkingService>();
+builder.Services.AddScoped<IEmbeddingService, AzureOpenAIEmbeddingService>();
+builder.Services.AddScoped<IDocumentChunkRepository, EfDocumentChunkRepository>();
+builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
+builder.Services.AddScoped<IDocumentProcessingBackgroundService, DocumentProcessingBackgroundService>();
 builder.Services.AddScoped<IConversationRepository, EfConversationRepository>();
 builder.Services.AddScoped<IMessageRepository, EfMessageRepository>();
 builder.Services.AddScoped<IRagService, StubRagService>();
@@ -137,33 +175,17 @@ if (app.Environment.IsDevelopment())
             PreferredSecurityScheme = JwtBearerDefaults.AuthenticationScheme
         };
     });
-}
 
+}
 app.MapControllers();
+app.MapHangfireDashboard("/job/hangfire");
+
 
 string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
 
 app.MapGet("/", () => "API service is running. Navigate to /weatherforecast to see sample data.");
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
 app.MapDefaultEndpoints();
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

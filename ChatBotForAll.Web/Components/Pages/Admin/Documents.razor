@@ -4,6 +4,7 @@
 @layout ChatBotForAll.Web.Components.Layout.AdminLayout
 
 @inject DocumentApiClient DocumentApiClient
+@inject TokenStore TokenStore
 
 <PageTitle>Documents — ChatBotForAll Admin</PageTitle>
 
@@ -89,7 +90,18 @@
     private bool _uploadSuccess;
     private string? _uploadMessage;
 
-    protected override async Task OnInitializedAsync() => await LoadDocuments();
+    protected override async Task OnInitializedAsync()
+    {
+        // Ensure token is restored from ProtectedLocalStorage before making API calls
+        // by waiting for TokenStore to have a value
+        var maxWaitTime = DateTime.UtcNow.AddSeconds(5);
+        while (TokenStore.CurrentUser is null && DateTime.UtcNow < maxWaitTime)
+        {
+            await Task.Delay(50);
+        }
+
+        await LoadDocuments();
+    }
 
     private async Task LoadDocuments()
     {

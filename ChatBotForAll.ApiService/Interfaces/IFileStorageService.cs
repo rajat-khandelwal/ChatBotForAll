@@ -4,5 +4,7 @@ namespace ChatBotForAll.ApiService.Interfaces
     {
         Task<string> SaveAsync(Guid tenantId, Guid documentId, string fileName, Stream content);
         Task DeleteAsync(string storagePath);
+
+        Task<string> ReadAsync (string storagePath);
     }
 }

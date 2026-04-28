@@ -12,10 +12,12 @@ namespace ChatBotForAll.ApiService.Controllers
     public class DocumentController : ControllerBase
     {
         private readonly IDocumentService _documentService;
+        private readonly ILogger<DocumentController> _logger;
 
-        public DocumentController(IDocumentService documentService)
+        public DocumentController(IDocumentService documentService, ILogger<DocumentController> logger)
         {
             _documentService = documentService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -29,8 +31,11 @@ namespace ChatBotForAll.ApiService.Controllers
             var tenantId = User.GetTenantId();
             var userId = User.GetUserId();
 
+            _logger.LogInformation("Document upload attempt - TenantId: {TenantId}, UserId: {UserId}, User: {User}", tenantId, userId, User.Identity?.Name);
+
             if (tenantId == Guid.Empty || userId == Guid.Empty)
             {
+                _logger.LogWarning("Invalid token claims - TenantId: {TenantId}, UserId: {UserId}", tenantId, userId);
                 return Unauthorized("Invalid token claims.");
             }
 
@@ -52,8 +57,11 @@ namespace ChatBotForAll.ApiService.Controllers
         public async Task<ActionResult<List<DocumentResponse>>> GetAll()
         {
             var tenantId = User.GetTenantId();
+            _logger.LogInformation("GetAll documents - TenantId: {TenantId}", tenantId);
+
             if (tenantId == Guid.Empty)
             {
+                _logger.LogWarning("Invalid token claims in GetAll");
                 return Unauthorized("Invalid token claims.");
             }
 

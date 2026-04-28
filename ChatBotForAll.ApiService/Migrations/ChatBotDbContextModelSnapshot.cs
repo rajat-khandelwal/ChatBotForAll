@@ -3,24 +3,22 @@ using System;
 using ChatBotForAll.ApiService.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 
 #nullable disable
 
-namespace ChatBotForAll.ApiService.Data.Migrations
+namespace ChatBotForAll.ApiService.Migrations
 {
     [DbContext(typeof(ChatBotDbContext))]
-    [Migration("20260411171118_InitialCreate")]
-    partial class InitialCreate
+    partial class ChatBotDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -104,9 +102,9 @@ namespace ChatBotForAll.ApiService.Data.Migrations
                     b.Property<DateTime?>("UpdatedDateTime")
                         .HasColumnType("timestamp with time zone");
 
-                    b.PrimitiveCollection<float[]>("Vector")
+                    b.Property<Vector>("Vector")
                         .IsRequired()
-                        .HasColumnType("real[]");
+                        .HasColumnType("vector");
 
                     b.HasKey("ChunkEmbeddingId");
 

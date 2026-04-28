@@ -34,5 +34,14 @@ namespace ChatBotForAll.ApiService.Services
 
             return Task.CompletedTask;
         }
+
+        public Task<string> ReadAsync(string storagePath)
+        {
+            if (!File.Exists(storagePath))
+            {
+                throw new FileNotFoundException("File not found", storagePath);
+            }
+            return File.ReadAllTextAsync(storagePath);
+        }
     }
 }
