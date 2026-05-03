@@ -2,7 +2,11 @@ using ChatBotForAll.ApiService.Data;
 using ChatBotForAll.ApiService.Entities;
 using ChatBotForAll.ApiService.Enums;
 using ChatBotForAll.ApiService.Interfaces;
+using iText.Kernel.Pdf;
+using iText.Kernel.Pdf.Canvas.Parser;
+using iText.Kernel.Pdf.Canvas.Parser.Listener;
 using Pgvector;
+using System.Text;
 
 namespace ChatBotForAll.ApiService.Services
 {
@@ -80,7 +84,9 @@ namespace ChatBotForAll.ApiService.Services
                         TokenCount = chunkDto.TokenCount,
                         MetadataJson = chunkDto.MetadataJson,
                         CreatedDateTime = DateTime.UtcNow,
-                        CreatedBy = document.UploadedByUserId.ToString()
+                        CreatedBy = document.UploadedByUserId.ToString(),
+                        UpdatedBy = document.UploadedByUserId.ToString(),
+                        UpdatedDateTime = DateTime.UtcNow
                     };
 
                     documentChunks.Add(documentChunk);
@@ -108,7 +114,9 @@ namespace ChatBotForAll.ApiService.Services
                             Model = "text-embedding-3-small",
                             Vector = new Vector(embedding),
                             CreatedDateTime = DateTime.UtcNow,
-                            CreatedBy = document.UploadedByUserId.ToString()
+                            CreatedBy = document.UploadedByUserId.ToString(),
+                            UpdatedBy = document.UploadedByUserId.ToString(),
+                            UpdatedDateTime = DateTime.UtcNow
                         });
 
                         _logger.LogInformation($"Generated embedding for chunk {i + 1}/{documentChunks.Count}");
@@ -165,11 +173,68 @@ namespace ChatBotForAll.ApiService.Services
             };
         }
 
-        private string ExtractTextFromPdf(string pdfContent)
+        private string ExtractTextFromPdf(string base64PdfContent)
         {
-            // For now, return as-is. In production, use iTextSharp, PdfSharpCore, or similar
-            _logger.LogWarning("PDF text extraction not yet implemented. Returning raw content.");
-            return pdfContent;
+            try
+            {
+                // Decode base64 string to bytes
+                var pdfBytes = Convert.FromBase64String(base64PdfContent);
+
+                using (var pdfStream = new MemoryStream(pdfBytes))
+                {
+                    using (var pdfReader = new PdfReader(pdfStream))
+                    {
+                        using (var pdfDocument = new PdfDocument(pdfReader))
+                        {
+                            var extractedText = new StringBuilder();
+                            var pageCount = pdfDocument.GetNumberOfPages();
+
+                            for (int i = 1; i <= pageCount; i++)
+                            {
+                                try
+                                {
+                                    var page = pdfDocument.GetPage(i);
+                                    var textExtractor = new SimpleTextExtractionStrategy();
+                                    var pageText = PdfTextExtractor.GetTextFromPage(page, textExtractor);
+
+                                    if (!string.IsNullOrWhiteSpace(pageText))
+                                    {
+                                        extractedText.AppendLine($"--- Page {i} ---");
+                                        extractedText.AppendLine(pageText);
+                                        extractedText.AppendLine();
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning($"Failed to extract text from page {i}: {ex.Message}");
+                                    // Continue with next page instead of failing completely
+                                }
+                            }
+
+                            var result = extractedText.ToString().Trim();
+
+                            if (string.IsNullOrWhiteSpace(result))
+                            {
+                                _logger.LogWarning("No text content extracted from PDF");
+                                return "[PDF document contains no extractable text]";
+                            }
+
+                            _logger.LogInformation($"Successfully extracted text from PDF ({pageCount} pages)");
+                            return result;
+                        }
+                    }
+                }
+            }
+            catch (FormatException ex)
+            {
+                _logger.LogError($"Invalid base64 PDF content: {ex.Message}");
+                throw new InvalidOperationException("Failed to decode PDF content - invalid base64 format", ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error extracting text from PDF: {ex.Message}");
+                throw new InvalidOperationException("Failed to extract text from PDF", ex);
+            }
         }
     }
 }

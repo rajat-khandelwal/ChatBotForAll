@@ -35,13 +35,25 @@ namespace ChatBotForAll.ApiService.Services
             return Task.CompletedTask;
         }
 
-        public Task<string> ReadAsync(string storagePath)
+        public async Task<string> ReadAsync(string storagePath)
         {
             if (!File.Exists(storagePath))
             {
                 throw new FileNotFoundException("File not found", storagePath);
             }
-            return File.ReadAllTextAsync(storagePath);
+
+            var extension = Path.GetExtension(storagePath).ToLowerInvariant();
+
+            // For text-based files, read as text
+            if (extension == ".txt" || extension == ".md")
+            {
+                return await File.ReadAllTextAsync(storagePath, System.Text.Encoding.UTF8);
+            }
+
+            // For binary files (like PDFs), read as bytes and convert to base64
+            // This prevents null byte encoding issues
+            var fileBytes = await File.ReadAllBytesAsync(storagePath);
+            return Convert.ToBase64String(fileBytes);
         }
     }
 }

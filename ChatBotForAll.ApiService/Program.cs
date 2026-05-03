@@ -94,7 +94,7 @@ builder.Services.AddScoped<IDocumentProcessingService, DocumentProcessingService
 builder.Services.AddScoped<IDocumentProcessingBackgroundService, DocumentProcessingBackgroundService>();
 builder.Services.AddScoped<IConversationRepository, EfConversationRepository>();
 builder.Services.AddScoped<IMessageRepository, EfMessageRepository>();
-builder.Services.AddScoped<IRagService, StubRagService>();
+builder.Services.AddScoped<IRagService, RagService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 
 // OpenAPI + Scalar (replaces Swagger)
